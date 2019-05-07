@@ -37,6 +37,21 @@ const ItemCtrl = (function(){
             data.items.push(newItem);
             return newItem;
         },
+        getItemById: function(id){
+            let found = null;
+            data.items.forEach(function(item){
+                if(item.id === id){
+                    found = item;
+                }
+            });
+            return found;
+        },
+        setCurrentItem: function(item){
+            data.currentItem = item;
+        },
+        getCurrentItem: function(){
+            return data.currentItem;
+        },
         logData: function(){
             return data;
         }
@@ -48,6 +63,9 @@ const UICtrl = (function(){
     const UISelectors = {
         itemList: '#item-list',
         addBtn: '.add-btn',
+        doneBtn: '.done-btn',
+        deleteBtn: '.delete-btn',
+        backBtn: '.back-btn',
         itemNameInput: '#item-name'
     }
     //Public methods
@@ -87,9 +105,27 @@ const UICtrl = (function(){
         hideList: function(){
             document.querySelector(UISelectors.itemList).style.display = 'none';
         },
+        showList: function(){
+            document.querySelector(UISelectors.doneBtn).style.display = 'inline';
+            document.querySelector(UISelectors.deleteBtn).style.display = 'inline';
+            document.querySelector(UISelectors.addBtn).style.display = 'none';
+            document.querySelector(UISelectors.backBtn).style.display = 'inline';        },
         clearInput: function(){
             document.querySelector(UISelectors.itemNameInput).value = '';
         },
+        clearEditState: function(){
+            UICtrl.clearInput();
+            document.querySelector(UISelectors.doneBtn).style.display = 'none';
+            document.querySelector(UISelectors.deleteBtn).style.display = 'none';
+            document.querySelector(UISelectors.addBtn).style.display = 'inline';
+            document.querySelector(UISelectors.backBtn).style.display = 'none';
+
+        },
+        addItemToForm: function(){
+            document.querySelector(UISelectors.itemNameInput).value = ItemCtrl.getCurrentItem().title;
+            UICtrl.showList();
+        },
+        
         getSelectors: function(){
             return UISelectors;
         }
@@ -106,7 +142,11 @@ const AppCtrl = (function(ItemCtrl, UICtrl){
         const UISelectors = UICtrl.getSelectors();
 
         //Add item event
-        document.querySelector(UISelectors.addBtn).addEventListener('click', itemAddSubmit)
+        document.querySelector(UISelectors.addBtn).addEventListener('click', itemAddSubmit);
+
+        //Edit icon click event
+        document.querySelector(UISelectors.itemList).addEventListener('click', itemDoneSubmit);
+
     }
 
     //Add item submit
@@ -126,11 +166,33 @@ const AppCtrl = (function(ItemCtrl, UICtrl){
         e.preventDefault();
     }
 
+    //item dont submit
+    const itemDoneSubmit = function(e){
+        if(e.target.classList.contains('edit-item')){
+            //Get list item id
+            const listId = e.target.parentNode.parentNode.id;
+            //break id into array
+            const listIdArr = listId.split('-');
+            const id = parseInt(listIdArr[1]);
+
+            //get item
+            const itemDone = ItemCtrl.getItemById(id);
+
+            //set current item
+            ItemCtrl.setCurrentItem(itemDone);
+
+            //Add item to form
+            UICtrl.addItemToForm();
+        }
+        e.preventDefault();
+    }
 
     //Public methods
     return {
         init: function(){
 
+            //Clear edit state
+            UICtrl.clearEditState();
             //Fetch items from data structure
             const items = ItemCtrl.getItems();
 
@@ -142,7 +204,6 @@ const AppCtrl = (function(ItemCtrl, UICtrl){
                 UICtrl.populateItemList(items);
             }
             
-           
             //Load event listeners
             loadEventListeners();
         }
