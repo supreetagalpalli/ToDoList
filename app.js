@@ -46,6 +46,17 @@ const ItemCtrl = (function(){
             });
             return found;
         },
+        strikeItem: function(title){
+            let found = null;
+            data.items.forEach(function(item){
+                if(item.id === data.currentItem.id){
+                    var strikeVal = title.strike();
+                    item.title = strikeVal;
+                    found = item;
+                }
+            });
+            return found;
+        },
         setCurrentItem: function(item){
             data.currentItem = item;
         },
@@ -66,7 +77,8 @@ const UICtrl = (function(){
         doneBtn: '.done-btn',
         deleteBtn: '.delete-btn',
         backBtn: '.back-btn',
-        itemNameInput: '#item-name'
+        itemNameInput: '#item-name',
+        listItems: '#item-list li'
     }
     //Public methods
     return {
@@ -102,6 +114,20 @@ const UICtrl = (function(){
             document.querySelector(UISelectors.itemList).insertAdjacentElement('beforeend',li);
             return 
         },
+        updateListItem: function(item){
+            let listItems = document.querySelectorAll(UISelectors.listItems);
+
+            //COonvert nodelist into array
+            listItems = Array.from(listItems);
+            listItems.forEach(function(listItem){
+                const itemId = listItem.getAttribute('id');
+
+                if(itemId === `item-${item.id}`){
+                    document.querySelector(`#${itemId}`).innerHTML = `<strong>${item.title} </strong> 
+                    <a href="#" class="secondary-content"><i class="edit-item fa fa-pencil"></i></a>`;
+                }
+            });
+        },
         hideList: function(){
             document.querySelector(UISelectors.itemList).style.display = 'none';
         },
@@ -109,7 +135,10 @@ const UICtrl = (function(){
             document.querySelector(UISelectors.doneBtn).style.display = 'inline';
             document.querySelector(UISelectors.deleteBtn).style.display = 'inline';
             document.querySelector(UISelectors.addBtn).style.display = 'none';
-            document.querySelector(UISelectors.backBtn).style.display = 'inline';        },
+            document.querySelector(UISelectors.backBtn).style.display = 'inline'; 
+            document.querySelector(UISelectors.itemNameInput).disabled = true;
+
+        },
         clearInput: function(){
             document.querySelector(UISelectors.itemNameInput).value = '';
         },
@@ -121,6 +150,7 @@ const UICtrl = (function(){
             document.querySelector(UISelectors.backBtn).style.display = 'none';
 
         },
+        
         addItemToForm: function(){
             document.querySelector(UISelectors.itemNameInput).value = ItemCtrl.getCurrentItem().title;
             UICtrl.showList();
@@ -141,11 +171,21 @@ const AppCtrl = (function(ItemCtrl, UICtrl){
         //Get UI selectors
         const UISelectors = UICtrl.getSelectors();
 
-        //Add item event
+        //Add item click event
         document.querySelector(UISelectors.addBtn).addEventListener('click', itemAddSubmit);
 
+        //Disable submit on enter
+        document.addEventListener('keypress',function(e){
+            if(e.keyCode === 13 || e.which === 13){
+                e.preventDefault();
+                return false;
+            }
+        });
         //Edit icon click event
-        document.querySelector(UISelectors.itemList).addEventListener('click', itemDoneSubmit);
+        document.querySelector(UISelectors.itemList).addEventListener('click', itemEditSubmit);
+
+        //Done item click event
+        document.querySelector(UISelectors.doneBtn).addEventListener('click', itemDoneSubmit);
 
     }
 
@@ -166,8 +206,8 @@ const AppCtrl = (function(ItemCtrl, UICtrl){
         e.preventDefault();
     }
 
-    //item dont submit
-    const itemDoneSubmit = function(e){
+    //item edit submit
+    const itemEditSubmit = function(e){
         if(e.target.classList.contains('edit-item')){
             //Get list item id
             const listId = e.target.parentNode.parentNode.id;
@@ -176,10 +216,10 @@ const AppCtrl = (function(ItemCtrl, UICtrl){
             const id = parseInt(listIdArr[1]);
 
             //get item
-            const itemDone = ItemCtrl.getItemById(id);
+            const itemEdit = ItemCtrl.getItemById(id);
 
             //set current item
-            ItemCtrl.setCurrentItem(itemDone);
+            ItemCtrl.setCurrentItem(itemEdit);
 
             //Add item to form
             UICtrl.addItemToForm();
@@ -187,6 +227,18 @@ const AppCtrl = (function(ItemCtrl, UICtrl){
         e.preventDefault();
     }
 
+    //item done submit 
+    const itemDoneSubmit = function(e){
+       
+        const input = UICtrl.getItemInput();
+        const doneItem = ItemCtrl.strikeItem(input.title);
+        
+        //Update UI
+        UICtrl.updateListItem(doneItem);
+        //clear edit fields
+        UICtrl.clearEditState();
+        e.preventDefault();
+    }
     //Public methods
     return {
         init: function(){
