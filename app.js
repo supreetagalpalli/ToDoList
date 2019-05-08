@@ -1,5 +1,53 @@
 //Storage Controller
+const StorageCtrl = (function(){
+    return {
+        storeItem: function(item){
+            let items;
 
+            if(localStorage.getItem('items') === null){
+                items = [];
+                items.push(item);
+                localStorage.setItem('items', JSON.stringify(items));
+            }else{
+                items = JSON.parse(localStorage.getItem('items'));
+                items.push(item);
+                localStorage.setItem('items', JSON.stringify(items));
+            }
+        },
+        getItemsFromStorage: function(){
+            let items;
+            if(localStorage.getItem('items') === null){
+                items = [];
+            }else{
+                items = JSON.parse(localStorage.getItem('items'));    
+            }
+            return items;
+        },
+        updateItemStorage: function(updatedItem){
+            let items = JSON.parse(localStorage.getItem('items'));
+
+            items.forEach(function(item, index){
+                if(updatedItem.id === item.id){
+                    items.splice(index, 1, updatedItem);
+                }
+            });
+            localStorage.setItem('items', JSON.stringify(items));
+        },
+        deleteItemFromStorage: function(id){
+            let items = JSON.parse(localStorage.getItem('items'));
+
+            items.forEach(function(item, index){
+                if(id === item.id){
+                    items.splice(index, 1);
+                }
+            });
+            localStorage.setItem('items', JSON.stringify(items));
+        },
+        clearItemsFromStorage: function(){
+            localStorage.removeItem('items');
+        }
+    }
+})();
 //Item Controller
 const ItemCtrl = (function(){
     const Item = function(id, title){
@@ -8,11 +56,12 @@ const ItemCtrl = (function(){
     }
 
     const data = {
-        items: [
-            // {id: 0, title: 'Read chapter 1'},
-            // {id: 1, title: 'Buy apples'},
-            // {id: 2, title: 'cook dinner'}
-        ],
+        // items: [
+        //     // {id: 0, title: 'Read chapter 1'},
+        //     // {id: 1, title: 'Buy apples'},
+        //     // {id: 2, title: 'cook dinner'}
+        // ],
+        items: StorageCtrl.getItemsFromStorage(),
         currentItem: null
     }
 
@@ -50,12 +99,27 @@ const ItemCtrl = (function(){
             let found = null;
             data.items.forEach(function(item){
                 if(item.id === data.currentItem.id){
-                    var strikeVal = title.strike();
+                    var strikeVal = title;
                     item.title = strikeVal;
                     found = item;
                 }
             });
             return found;
+        },
+        deleteItem: function(id){
+            //Get ids
+            const ids = data.items.map(function(item){
+                return item.id;
+            });
+            
+            //Get index
+            const index = ids.indexOf(id);
+
+            //Remove item
+            data.items.splice(index, 1);
+        },
+        clearAllItems: function(){
+            data.items = [];
         },
         setCurrentItem: function(item){
             data.currentItem = item;
@@ -77,6 +141,7 @@ const UICtrl = (function(){
         doneBtn: '.done-btn',
         deleteBtn: '.delete-btn',
         backBtn: '.back-btn',
+        clearBtn: '.clear-btn',
         itemNameInput: '#item-name',
         listItems: '#item-list li'
     }
@@ -123,10 +188,15 @@ const UICtrl = (function(){
                 const itemId = listItem.getAttribute('id');
 
                 if(itemId === `item-${item.id}`){
-                    document.querySelector(`#${itemId}`).innerHTML = `<strong>${item.title} </strong> 
+                    document.querySelector(`#${itemId}`).innerHTML = `<strike>${item.title} </strike> 
                     <a href="#" class="secondary-content"><i class="edit-item fa fa-pencil"></i></a>`;
                 }
             });
+        },
+        deleteListItem: function(id){
+            const itemID = `#item-${id}`;
+            const item = document.querySelector(itemID);
+            item.remove();
         },
         hideList: function(){
             document.querySelector(UISelectors.itemList).style.display = 'none';
@@ -136,7 +206,6 @@ const UICtrl = (function(){
             document.querySelector(UISelectors.deleteBtn).style.display = 'inline';
             document.querySelector(UISelectors.addBtn).style.display = 'none';
             document.querySelector(UISelectors.backBtn).style.display = 'inline'; 
-            document.querySelector(UISelectors.itemNameInput).disabled = true;
 
         },
         clearInput: function(){
@@ -150,7 +219,14 @@ const UICtrl = (function(){
             document.querySelector(UISelectors.backBtn).style.display = 'none';
 
         },
-        
+        removeItems: function(){
+            let listItems = document.querySelectorAll(UISelectors.listItems);
+            listItems = Array.from(listItems);
+
+            listItems.forEach(function(listItem){
+                listItem.remove();
+            });
+        },
         addItemToForm: function(){
             document.querySelector(UISelectors.itemNameInput).value = ItemCtrl.getCurrentItem().title;
             UICtrl.showList();
@@ -163,7 +239,7 @@ const UICtrl = (function(){
 })();
 
 //App Controller
-const AppCtrl = (function(ItemCtrl, UICtrl){
+const AppCtrl = (function(ItemCtrl, StorageCtrl, UICtrl){
 
     //Load event listeners
     const loadEventListeners = function(){
@@ -187,6 +263,12 @@ const AppCtrl = (function(ItemCtrl, UICtrl){
         //Done item click event
         document.querySelector(UISelectors.doneBtn).addEventListener('click', itemDoneSubmit);
 
+        //Delete Item click event
+        document.querySelector(UISelectors.deleteBtn).addEventListener('click', itemDeleteSubmit);
+
+        //Clearall Item click event
+        document.querySelector(UISelectors.clearBtn).addEventListener('click', clearAllItemsClick);
+
     }
 
     //Add item submit
@@ -200,9 +282,12 @@ const AppCtrl = (function(ItemCtrl, UICtrl){
             const newItem = ItemCtrl.addItem(input.title);
             //Add item to UI list
             UICtrl.addListItem(newItem);
+            //Store in ls
+            StorageCtrl.storeItem(newItem);
+            //Clear fields
+            UICtrl.clearInput();
         }
-        //Clear fields
-        UICtrl.clearInput();
+        
         e.preventDefault();
     }
 
@@ -235,9 +320,40 @@ const AppCtrl = (function(ItemCtrl, UICtrl){
         
         //Update UI
         UICtrl.updateListItem(doneItem);
+        //Update ls
+        StorageCtrl.updateItemStorage(doneItem);
         //clear edit fields
         UICtrl.clearEditState();
         e.preventDefault();
+    }
+
+    //item delete submit
+    const itemDeleteSubmit = function(e){
+        //get current item
+        const currentItem = ItemCtrl.getCurrentItem();
+        //delete from ds
+        ItemCtrl.deleteItem(currentItem.id);
+        //delete from ui
+        UICtrl.deleteListItem(currentItem.id);
+        //Delete from ls
+        StorageCtrl.deleteItemFromStorage(currentItem.id);
+        //clear edit fields
+        UICtrl.clearEditState();
+
+        e.preventDefault();
+    }
+
+    //item clear all submit
+    const clearAllItemsClick = function(){
+        
+        //delete from ds
+        ItemCtrl.clearAllItems();
+        //delete from ui
+        UICtrl.removeItems();
+        //Remove from ls
+        StorageCtrl.clearItemsFromStorage();
+        //Hide ui
+        UICtrl.hideList();
     }
     //Public methods
     return {
@@ -260,6 +376,6 @@ const AppCtrl = (function(ItemCtrl, UICtrl){
             loadEventListeners();
         }
     }
-})(ItemCtrl, UICtrl);
+})(ItemCtrl, StorageCtrl, UICtrl);
 
 AppCtrl.init();
